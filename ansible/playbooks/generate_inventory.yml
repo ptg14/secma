@@ -11,12 +11,12 @@
   tasks:
     - name: Check if Terraform state exists
       stat:
-        path: "{{ terraform_dir }}/.terraform"
+        path: "{{ terraform_dir }}/terraform.tfstate"
       register: terraform_state
 
-    - name: Fail if Terraform not initialized
+    - name: Fail if Terraform not applied
       fail:
-        msg: "Terraform not initialized. Run 'terraform init' in {{ terraform_dir }} first"
+        msg: "Terraform state not found. Run 'terraform apply' in {{ terraform_dir }} first"
       when: not terraform_state.stat.exists
 
     - name: Get GitLab public IP
