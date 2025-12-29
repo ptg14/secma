@@ -51,7 +51,7 @@
 
     - name: Generate inventory file
       template:
-        src: inventory.ini.j2
+        src: ../inventory.ini.j2
         dest: "{{ inventory_file }}"
       vars:
         gitlab_public_ip: "{{ gitlab_public.stdout | default('') }}"
