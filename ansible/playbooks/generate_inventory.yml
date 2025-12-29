@@ -6,7 +6,7 @@
 
   vars:
     terraform_dir: "../../terraform"
-    inventory_file: "inventory.ini"
+    inventory_file: "../inventory.ini"
 
   tasks:
     - name: Check if Terraform state exists
@@ -48,6 +48,24 @@
       command: "terraform output -state={{ terraform_dir }}/terraform.tfstate -raw opa_private_ip"
       register: opa_private
       ignore_errors: yes
+
+    - name: Get private key
+      command: "terraform output -state={{ terraform_dir }}/terraform.tfstate private_key"
+      register: private_key
+      ignore_errors: yes
+
+    - name: Create SSH directory
+      file:
+        path: ~/.ssh
+        state: directory
+        mode: '0700'
+
+    - name: Save private key
+      copy:
+        content: "{{ private_key.stdout }}"
+        dest: ~/.ssh/your-key.pem
+        mode: '0600'
+      when: private_key.stdout != ""
 
     - name: Generate inventory file
       template:

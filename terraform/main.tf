@@ -47,6 +47,17 @@ variable "key_name" {
   default     = "my-key-pair"
 }
 
+# SSH Key Pair
+resource "tls_private_key" "ssh_key" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+
+resource "aws_key_pair" "generated_key" {
+  key_name   = var.key_name
+  public_key = tls_private_key.ssh_key.public_key_openssh
+}
+
 # VPC
 resource "aws_vpc" "main" {
   cidr_block = var.vpc_cidr
@@ -323,4 +334,10 @@ output "vault_private_ip" {
 output "opa_private_ip" {
   description = "Private IP of OPA instance"
   value       = aws_instance.opa.private_ip
+}
+
+output "private_key" {
+  description = "Private key for SSH access"
+  value       = tls_private_key.ssh_key.private_key_pem
+  sensitive   = true
 }
