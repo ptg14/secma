@@ -5,7 +5,7 @@
   gather_facts: no
 
   vars:
-    terraform_dir: "../terraform"
+    terraform_dir: "../../terraform"
     inventory_file: "inventory.ini"
 
   tasks:
