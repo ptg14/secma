@@ -1,24 +1,56 @@
 ---
+- name: Debug host info
+  debug:
+    msg: "inventory_hostname: {{ inventory_hostname }}, ansible_hostname: {{ ansible_hostname }}"
+
 - name: Install Vault
   block:
     - name: Add HashiCorp GPG key
       shell: wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
       args:
         creates: /usr/share/keyrings/hashicorp-archive-keyring.gpg
+      register: gpg_result
+      ignore_errors: yes
+
+    - name: Debug GPG key add
+      debug:
+        msg: "GPG key result: {{ gpg_result.stdout | default('Success') }}, stderr: {{ gpg_result.stderr | default('None') }}"
+      when: inventory_hostname == 'vault'
 
     - name: Add HashiCorp repository
       shell: echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list
       args:
         creates: /etc/apt/sources.list.d/hashicorp.list
+      register: repo_result
+      ignore_errors: yes
+
+    - name: Debug repo add
+      debug:
+        msg: "Repo add result: {{ repo_result.stdout | default('Success') }}, stderr: {{ repo_result.stderr | default('None') }}"
+      when: inventory_hostname == 'vault'
 
     - name: Update apt cache
       apt:
         update_cache: yes
+      register: update_result
+      ignore_errors: yes
+
+    - name: Debug apt update
+      debug:
+        msg: "Apt update result: {{ update_result.stdout | default('Success') }}, stderr: {{ update_result.stderr | default('None') }}"
+      when: inventory_hostname == 'vault'
 
     - name: Install Vault
       apt:
         name: vault
         state: present
+      register: install_result
+      ignore_errors: yes
+
+    - name: Debug Vault install
+      debug:
+        msg: "Vault install result: {{ install_result.stdout | default('Success') }}, stderr: {{ install_result.stderr | default('None') }}"
+      when: inventory_hostname == 'vault'
 
     - name: Create Vault config directory
       file:
@@ -53,6 +85,17 @@
         name: vault
         state: started
         enabled: yes
+
+    - name: Check Vault service status
+      command: systemctl status vault --no-pager
+      register: vault_status
+      ignore_errors: yes
+      when: inventory_hostname == 'vault'
+
+    - name: Debug Vault status
+      debug:
+        msg: "Vault status: {{ vault_status.stdout | default('No output') }}"
+      when: inventory_hostname == 'vault'
 
   when: inventory_hostname == 'vault'
 
