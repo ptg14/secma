@@ -50,7 +50,7 @@
       ignore_errors: yes
 
     - name: Get private key
-      command: "terraform output -state={{ terraform_dir }}/terraform.tfstate private_key"
+      command: "terraform output -state={{ terraform_dir }}/terraform.tfstate -raw private_key"
       register: private_key
       ignore_errors: yes
 

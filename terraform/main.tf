@@ -203,10 +203,12 @@ resource "aws_instance" "gitlab" {
   subnet_id                   = aws_subnet.public[0].id
   vpc_security_group_ids      = [aws_security_group.web.id]
   associate_public_ip_address = true
+  depends_on                  = [aws_key_pair.generated_key]
 
   user_data = <<-EOF
               #!/bin/bash
               apt-get update
+              echo 'ubuntu:devops123' | chpasswd
               apt-get install -y docker.io curl jq
               systemctl start docker
               systemctl enable docker
@@ -232,10 +234,12 @@ resource "aws_instance" "vault" {
   subnet_id                   = aws_subnet.public[1].id
   vpc_security_group_ids      = [aws_security_group.web.id]
   associate_public_ip_address = true
+  depends_on                  = [aws_key_pair.generated_key]
 
   user_data = <<-EOF
               #!/bin/bash
               apt-get update
+              echo 'ubuntu:devops123' | chpasswd
               apt-get install -y unzip
               wget https://releases.hashicorp.com/vault/1.13.0/vault_1.13.0_linux_amd64.zip
               unzip vault_1.13.0_linux_amd64.zip
@@ -281,10 +285,12 @@ resource "aws_instance" "opa" {
   subnet_id                   = aws_subnet.public[0].id
   vpc_security_group_ids      = [aws_security_group.web.id]
   associate_public_ip_address = true
+  depends_on                  = [aws_key_pair.generated_key]
 
   user_data = <<-EOF
               #!/bin/bash
               apt-get update
+              echo 'ubuntu:devops123' | chpasswd
               wget https://openpolicyagent.org/downloads/v0.57.0/opa_linux_amd64
               mv opa_linux_amd64 /usr/local/bin/opa
               chmod +x /usr/local/bin/opa
