@@ -72,7 +72,7 @@
     - name: Validate inventory
       assert:
         that:
-          - gitlab_public_ip != ""
-          - vault_public_ip != ""
-          - opa_public_ip != ""
+          - gitlab_public.stdout != ""
+          - vault_public.stdout != ""
+          - opa_public.stdout != ""
         fail_msg: "Some Terraform outputs are missing. Make sure terraform apply completed successfully."
