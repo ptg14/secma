@@ -52,8 +52,36 @@ check_prerequisites() {
 
     if [ ${#missing_deps[@]} -ne 0 ]; then
         print_error "Missing dependencies: ${missing_deps[*]}"
-        echo "Please install them and try again."
-        echo "See README.md for installation instructions."
+        echo ""
+        print_warning "Installation Instructions:"
+        echo ""
+
+        # Detect OS
+        if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            echo "🐧 Ubuntu/Debian/Linux:"
+            echo "curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -"
+            echo "sudo apt-add-repository \"deb [arch=amd64] https://apt.releases.hashicorp.com \$(lsb_release -cs) main\""
+            echo "sudo apt-get update"
+            echo "sudo apt-get install terraform ansible awscli"
+            echo ""
+        elif [[ "$OSTYPE" == "darwin"* ]]; then
+            echo "🍎 macOS:"
+            echo "brew install terraform ansible awscli"
+            echo ""
+        elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
+            echo "🪟 Windows (with Chocolatey):"
+            echo "choco install terraform ansible awscli"
+            echo ""
+            echo "🪟 Windows (Manual):"
+            echo "1. Terraform: https://www.terraform.io/downloads"
+            echo "2. Ansible: pip install ansible"
+            echo "3. AWS CLI: https://awscli.amazonaws.com/AWSCLIV2.msi"
+            echo ""
+        fi
+
+        echo "📖 For detailed instructions, see: README.md"
+        echo ""
+        echo "After installation, run this script again."
         exit 1
     fi
 
@@ -61,7 +89,16 @@ check_prerequisites() {
 
     # Check AWS configuration
     if ! aws sts get-caller-identity &> /dev/null; then
-        print_error "AWS CLI not configured. Run 'aws configure' first."
+        print_error "AWS CLI not configured properly."
+        echo ""
+        print_warning "Configure AWS CLI:"
+        echo "aws configure"
+        echo ""
+        echo "Or set environment variables:"
+        echo "export AWS_ACCESS_KEY_ID=your_access_key"
+        echo "export AWS_SECRET_ACCESS_KEY=your_secret_key"
+        echo "export AWS_DEFAULT_REGION=us-east-1"
+        echo ""
         exit 1
     fi
 

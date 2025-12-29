@@ -14,27 +14,122 @@ This project provides Infrastructure as Code (IaC) using Terraform to automatica
 - Ansible 2.9+
 - SSH key pair for EC2 access
 
-### Deploy in 5 Steps
+### One-Command Deploy
 
 ```bash
-# 1. Clone and navigate to project
+# Download and run
+git clone <your-repo-url>
 cd aws-devops-stack
 
-# 2. Deploy infrastructure
-cd terraform
-terraform init && terraform apply
+# Quick install (Ubuntu/Debian only)
+curl -fsSL https://raw.githubusercontent.com/your-repo/main/install-deps.sh | bash
 
-# 3. Configure services
-cd ../ansible
-ansible-galaxy collection install -r requirements.yml
-ansible-playbook playbooks/generate_inventory.yml
-ansible-playbook playbooks/site.yml
+# Deploy everything
+./deploy.sh
+```
 
-# 4. Test deployment
-ansible-playbook playbooks/test.yml
+**The script automatically:**
+- ✅ Checks and installs missing dependencies
+- ✅ Deploys AWS infrastructure
+- ✅ Configures all services
+- ✅ Tests integrations
+- ✅ Provides access information
 
-# 5. Access your services
-terraform output  # Get public IPs
+## Detailed Installation
+
+### Ubuntu/Debian
+
+```bash
+# Add HashiCorp repository
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+
+# Install all prerequisites
+sudo apt-get update
+sudo apt-get install -y terraform ansible awscli python3-pip
+
+# Verify installations
+terraform version
+ansible --version
+aws --version
+```
+
+### macOS
+
+```bash
+# Install with Homebrew
+brew install terraform ansible awscli
+
+# Verify
+terraform version
+ansible --version
+aws --version
+```
+
+### Windows
+
+#### Option 1: Chocolatey (Recommended)
+```powershell
+# Install Chocolatey first if not installed
+# Then install tools
+choco install terraform ansible awscli
+
+# Verify
+terraform version
+ansible --version
+aws --version
+```
+
+#### Option 2: Manual Installation
+1. **Terraform**: Download from https://www.terraform.io/downloads
+2. **Ansible**: `pip install ansible`
+3. **AWS CLI**: Download from https://awscli.amazonaws.com/AWSCLIV2.msi
+
+### Quick Install Script
+
+For Ubuntu/Debian, you can also run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/your-repo/main/install-deps.sh | bash
+```
+
+## AWS Configuration
+
+```bash
+# Configure AWS CLI
+aws configure
+
+# Required permissions (IAM policy):
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:*",
+        "vpc:*",
+        "iam:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+
+# Verify configuration
+aws sts get-caller-identity
+```
+
+## SSH Key Setup
+
+```bash
+# Option 1: Create in AWS Console
+# - Go to EC2 > Key Pairs
+# - Create "my-key-pair"
+# - Download .pem file
+
+# Option 2: Create via CLI
+aws ec2 create-key-pair --key-name my-key-pair --query 'KeyMaterial' --output text > my-key-pair.pem
+chmod 400 my-key-pair.pem
 ```
 
 ## Detailed Deployment Guide
@@ -385,3 +480,128 @@ If you prefer manual control:
 - Change default passwords after deployment
 - Configure SSL/TLS for production use
 - Review security groups and IAM policies
+
+## Troubleshooting
+
+### Missing Dependencies Error
+
+If you see: `❌ Missing dependencies: terraform ansible-playbook`
+
+#### Quick Fix for Ubuntu/Debian:
+```bash
+# Run the automated installer
+curl -fsSL https://raw.githubusercontent.com/your-repo/main/install-deps.sh | bash
+```
+
+#### Manual Installation:
+
+**Ubuntu/Debian:**
+```bash
+# Add HashiCorp repo
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+sudo apt-get update
+sudo apt-get install terraform ansible awscli
+```
+
+**macOS:**
+```bash
+brew install terraform ansible awscli
+```
+
+**Windows:**
+```powershell
+choco install terraform ansible awscli
+# Or download manually from official websites
+```
+
+### AWS Configuration Issues
+
+**Error:** `AWS CLI not configured`
+```bash
+aws configure
+# Enter your AWS credentials
+```
+
+**Error:** `Unable to locate credentials`
+```bash
+# Set environment variables
+export AWS_ACCESS_KEY_ID=your_key
+export AWS_SECRET_ACCESS_KEY=your_secret
+export AWS_DEFAULT_REGION=us-east-1
+```
+
+### SSH Connection Issues
+
+**Error:** `Permission denied (publickey)`
+```bash
+# Fix key permissions
+chmod 400 your-key.pem
+
+# Test connection
+ssh -i your-key.pem ubuntu@instance-ip
+```
+
+### Service Startup Issues
+
+**Check service status:**
+```bash
+# SSH into instance and check
+sudo systemctl status gitlab
+sudo systemctl status vault
+sudo systemctl status opa
+
+# Check logs
+sudo journalctl -u gitlab -f
+docker logs gitlab  # For GitLab
+```
+
+### Ansible Connection Issues
+
+**Test connectivity:**
+```bash
+cd ansible
+ansible -i inventory.ini -m ping all
+```
+
+**Update SSH key path:**
+```ini
+# In ansible/inventory.ini
+ansible_ssh_private_key_file=/path/to/your-key.pem
+```
+
+### Terraform Issues
+
+**Clean re-initialize:**
+```bash
+cd terraform
+rm -rf .terraform
+terraform init
+```
+
+**Check state:**
+```bash
+terraform show
+terraform state list
+```
+
+### Port Already in Use
+
+If deployment fails due to port conflicts:
+```bash
+# Check what's using ports
+sudo lsof -i :80
+sudo lsof -i :8200
+sudo lsof -i :8181
+```
+
+### Cleanup and Retry
+
+If something goes wrong:
+```bash
+# Clean everything
+./cleanup.sh
+
+# Retry deployment
+./deploy.sh
+```
