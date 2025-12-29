@@ -1,0 +1,32 @@
+---
+- name: Configure DevOps Stack Integration
+  hosts: devops_stack
+  become: yes
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install required packages
+      package:
+        name:
+          - curl
+          - jq
+          - python3-pip
+        state: present
+
+    - name: Install Python packages
+      pip:
+        name:
+          - requests
+          - pyyaml
+        state: present
+
+  roles:
+    - vault
+    - opa
+    - gitlab
+    - integration

@@ -1,0 +1,10 @@
+[devops_stack]
+gitlab ansible_host={{ gitlab_public_ip }} gitlab_private_ip={{ gitlab_private_ip }}
+vault ansible_host={{ vault_public_ip }} vault_private_ip={{ vault_private_ip }}
+opa ansible_host={{ opa_public_ip }} opa_private_ip={{ opa_private_ip }}
+
+[devops_stack:vars]
+ansible_python_interpreter=/usr/bin/python3
+ansible_user=ubuntu
+ansible_ssh_private_key_file=~/.ssh/your-key.pem
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'

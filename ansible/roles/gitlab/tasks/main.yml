@@ -1,0 +1,114 @@
+---
+- name: Wait for GitLab to be ready
+  uri:
+    url: "http://localhost"
+    method: GET
+  register: gitlab_health
+  until: gitlab_health.status == 200
+  retries: 60
+  delay: 10
+
+- name: Get GitLab initial root password
+  slurp:
+    src: /etc/gitlab/initial_root_password
+  register: gitlab_password_file
+  ignore_errors: true
+
+- name: Set GitLab root password fact
+  set_fact:
+    gitlab_root_password: "{{ (gitlab_password_file.content | default('') | b64decode | regex_search('Password: (.+)', '\\1') | first) | default('password123') }}"
+
+- name: Get GitLab root token
+  uri:
+    url: "http://localhost/api/v4/session"
+    method: POST
+    body_format: json
+    body:
+      login: "root"
+      password: "{{ gitlab_root_password }}"
+  register: gitlab_login
+  ignore_errors: true
+
+- name: Fail if cannot authenticate with GitLab
+  fail:
+    msg: "Cannot authenticate with GitLab. Check password and API availability."
+  when: gitlab_login is failed
+
+- name: Set GitLab token fact
+  set_fact:
+    gitlab_token: "{{ gitlab_login.json.private_token }}"
+
+- name: Create GitLab CI/CD variables
+  uri:
+    url: "http://localhost/api/v4/admin/ci/variables"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
+    body_format: json
+    body:
+      key: "VAULT_ADDR"
+      value: "http://{{ vault_private_ip }}:8200"
+      protected: true
+      masked: false
+
+- name: Create Vault token variable
+  uri:
+    url: "http://localhost/api/v4/admin/ci/variables"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
+    body_format: json
+    body:
+      key: "VAULT_TOKEN"
+      value: "{{ lookup('file', '/tmp/vault_token.txt') }}"
+      protected: true
+      masked: true
+
+- name: Create sample project
+  uri:
+    url: "http://localhost/api/v4/projects"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
+    body_format: json
+    body:
+      name: "sample-app"
+      visibility: "private"
+
+- name: Create sample CI/CD pipeline
+  uri:
+    url: "http://localhost/api/v4/projects/1/repository/files/.gitlab-ci.yml"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
+    body_format: json
+    body:
+      branch: "main"
+      content: |
+        stages:
+          - build
+          - deploy
+
+        build:
+          stage: build
+          script:
+            - echo "Building application..."
+            - echo "Getting secrets from Vault..."
+            - |
+              SECRET=$(curl -H "X-Vault-Token: $VAULT_TOKEN" $VAULT_ADDR/v1/secret/data/gitlab | jq -r '.data.data.db_password')
+              echo "Database password: $SECRET"
+
+        deploy:
+          stage: deploy
+          script:
+            - echo "Deploying with secrets from Vault..."
+            - |
+              API_KEY=$(curl -H "X-Vault-Token: $VAULT_TOKEN" $VAULT_ADDR/v1/secret/data/gitlab | jq -r '.data.data.api_key')
+              echo "Using API key: $API_KEY"
+      commit_message: "Add sample CI/CD pipeline with Vault integration"
+
+- name: Save GitLab token for other roles
+  copy:
+    content: "{{ gitlab_token }}"
+    dest: /tmp/gitlab_token.txt
+    mode: '0600'

@@ -1,0 +1,63 @@
+#!/bin/bash
+# Integration Test Script
+
+echo "=== DevOps Stack Integration Test ==="
+echo "Date: $(date)"
+echo ""
+
+VAULT_IP="{{ vault_private_ip }}"
+OPA_IP="{{ opa_private_ip }}"
+GITLAB_IP="{{ gitlab_private_ip }}"
+
+# Test 1: Vault connectivity
+echo "1. Testing Vault connectivity..."
+if curl -s --max-time 5 http://$VAULT_IP:8200/v1/sys/health > /dev/null; then
+    echo "✅ Vault is accessible"
+else
+    echo "❌ Vault is not accessible"
+fi
+
+# Test 2: OPA connectivity
+echo "2. Testing OPA connectivity..."
+if curl -s --max-time 5 http://$OPA_IP:8181/health > /dev/null; then
+    echo "✅ OPA is accessible"
+else
+    echo "❌ OPA is not accessible"
+fi
+
+# Test 3: GitLab connectivity
+echo "3. Testing GitLab connectivity..."
+if curl -s --max-time 5 http://$GITLAB_IP > /dev/null; then
+    echo "✅ GitLab is accessible"
+else
+    echo "❌ GitLab is not accessible"
+fi
+
+# Test 4: Vault secrets access
+echo "4. Testing Vault secrets access..."
+VAULT_TOKEN=$(cat /tmp/vault_token.txt 2>/dev/null)
+if [ -n "$VAULT_TOKEN" ]; then
+    SECRET=$(curl -s -H "X-Vault-Token: $VAULT_TOKEN" http://$VAULT_IP:8200/v1/secret/data/gitlab | jq -r '.data.data.db_password' 2>/dev/null)
+    if [ "$SECRET" = "prod_db_password_123" ]; then
+        echo "✅ Vault secrets accessible"
+    else
+        echo "❌ Vault secrets not accessible"
+    fi
+else
+    echo "❌ Vault token not found"
+fi
+
+# Test 5: OPA policy evaluation
+echo "5. Testing OPA policy evaluation..."
+POLICY_RESULT=$(curl -s -X POST http://$OPA_IP:8181/v1/data/integration/allow_gitlab_vault \
+    -H "Content-Type: application/json" \
+    -d '{"input":{"service":"gitlab","action":"read_secret"}}' | jq -r '.result' 2>/dev/null)
+
+if [ "$POLICY_RESULT" = "true" ]; then
+    echo "✅ OPA policy evaluation working"
+else
+    echo "❌ OPA policy evaluation failed"
+fi
+
+echo ""
+echo "=== Integration Test Complete ==="

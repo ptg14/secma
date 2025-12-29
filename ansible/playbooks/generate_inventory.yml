@@ -1,0 +1,78 @@
+---
+- name: Generate Ansible Inventory from Terraform
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    terraform_dir: "../terraform"
+    inventory_file: "inventory.ini"
+
+  tasks:
+    - name: Check if Terraform state exists
+      stat:
+        path: "{{ terraform_dir }}/.terraform"
+      register: terraform_state
+
+    - name: Fail if Terraform not initialized
+      fail:
+        msg: "Terraform not initialized. Run 'terraform init' in {{ terraform_dir }} first"
+      when: not terraform_state.stat.exists
+
+    - name: Get GitLab public IP
+      command: "terraform output -state={{ terraform_dir }}/terraform.tfstate -raw gitlab_public_ip"
+      register: gitlab_public
+      ignore_errors: yes
+
+    - name: Get Vault public IP
+      command: "terraform output -state={{ terraform_dir }}/terraform.tfstate -raw vault_public_ip"
+      register: vault_public
+      ignore_errors: yes
+
+    - name: Get OPA public IP
+      command: "terraform output -state={{ terraform_dir }}/terraform.tfstate -raw opa_public_ip"
+      register: opa_public
+      ignore_errors: yes
+
+    - name: Get GitLab private IP
+      command: "terraform output -state={{ terraform_dir }}/terraform.tfstate -raw gitlab_private_ip"
+      register: gitlab_private
+      ignore_errors: yes
+
+    - name: Get Vault private IP
+      command: "terraform output -state={{ terraform_dir }}/terraform.tfstate -raw vault_private_ip"
+      register: vault_private
+      ignore_errors: yes
+
+    - name: Get OPA private IP
+      command: "terraform output -state={{ terraform_dir }}/terraform.tfstate -raw opa_private_ip"
+      register: opa_private
+      ignore_errors: yes
+
+    - name: Generate inventory file
+      template:
+        src: inventory.ini.j2
+        dest: "{{ inventory_file }}"
+      vars:
+        gitlab_public_ip: "{{ gitlab_public.stdout | default('') }}"
+        vault_public_ip: "{{ vault_public.stdout | default('') }}"
+        opa_public_ip: "{{ opa_public.stdout | default('') }}"
+        gitlab_private_ip: "{{ gitlab_private.stdout | default('') }}"
+        vault_private_ip: "{{ vault_private.stdout | default('') }}"
+        opa_private_ip: "{{ opa_private.stdout | default('') }}"
+
+    - name: Display generated inventory
+      command: cat {{ inventory_file }}
+      register: inventory_content
+
+    - name: Show inventory content
+      debug:
+        msg: "{{ inventory_content.stdout }}"
+
+    - name: Validate inventory
+      assert:
+        that:
+          - gitlab_public_ip != ""
+          - vault_public_ip != ""
+          - opa_public_ip != ""
+        fail_msg: "Some Terraform outputs are missing. Make sure terraform apply completed successfully."

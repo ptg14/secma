@@ -1,0 +1,32 @@
+---
+- name: Test DevOps Stack Integration
+  hosts: devops_stack
+  become: yes
+  gather_facts: no
+
+  tasks:
+    - name: Run integration tests
+      command: /opt/integration_test.sh
+      register: test_results
+      changed_when: false
+
+    - name: Display test results
+      debug:
+        msg: "{{ test_results.stdout }}"
+
+    - name: Check service health
+      uri:
+        url: "{{ item.url }}"
+        method: GET
+        status_code: 200
+      loop:
+        - { url: 'http://localhost', service: 'GitLab' }
+        - { url: 'http://localhost:8200/v1/sys/health', service: 'Vault' }
+        - { url: 'http://localhost:8181/health', service: 'OPA' }
+      ignore_errors: yes
+      register: health_checks
+
+    - name: Report health status
+      debug:
+        msg: "{{ item.item.service }}: {{ '✅ UP' if item.status == 200 else '❌ DOWN' }}"
+      loop: "{{ health_checks.results }}"

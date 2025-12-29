@@ -1,0 +1,108 @@
+---
+- name: Wait for Vault to be ready
+  uri:
+    url: "http://localhost:8200/v1/sys/health"
+    method: GET
+  register: vault_health
+  until: vault_health.status == 200
+  retries: 30
+  delay: 10
+
+- name: Check if Vault is initialized
+  set_fact:
+    vault_initialized: "{{ vault_health.json.initialized | default(false) }}"
+
+- name: Initialize Vault if not initialized
+  uri:
+    url: "http://localhost:8200/v1/sys/init"
+    method: POST
+    body_format: json
+    body:
+      secret_shares: 1
+      secret_threshold: 1
+  register: vault_init
+  when: not vault_initialized
+
+- name: Set vault root token
+  set_fact:
+    vault_token: "{{ vault_init.json.root_token | default('existing-token') }}"
+  when: vault_init is defined
+
+- name: Unseal Vault if sealed
+  uri:
+    url: "http://localhost:8200/v1/sys/unseal"
+    method: POST
+    body_format: json
+    body:
+      key: "{{ vault_init.json.keys[0] }}"
+  register: unseal_result
+  when: vault_init is defined and vault_health.json.sealed | default(false)
+
+- name: Get Vault root token
+  set_fact:
+    vault_token: "{{ vault_init.json.root_token }}"
+  when: vault_init is defined
+
+- name: Enable KV secrets engine
+  uri:
+    url: "http://localhost:8200/v1/sys/mounts/secret"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ vault_token }}"
+    body_format: json
+    body:
+      type: "kv"
+      version: "2"
+
+- name: Store GitLab secrets
+  uri:
+    url: "http://localhost:8200/v1/secret/data/gitlab"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ vault_token }}"
+    body_format: json
+    body:
+      data:
+        db_password: "prod_db_password_123"
+        api_key: "gitlab_api_key_xyz"
+        docker_registry_user: "registry_user"
+        docker_registry_pass: "registry_pass_456"
+
+- name: Enable OPA auth method
+  uri:
+    url: "http://localhost:8200/v1/sys/auth/opa"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ vault_token }}"
+    body_format: json
+    body:
+      type: "opa"
+
+- name: Configure OPA auth
+  uri:
+    url: "http://localhost:8200/v1/auth/opa/config"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ vault_token }}"
+    body_format: json
+    body:
+      opa_server_url: "http://{{ opa_private_ip }}:8181"
+
+- name: Create GitLab CI policy
+  uri:
+    url: "http://localhost:8200/v1/sys/policies/acl/gitlab-ci"
+    method: PUT
+    headers:
+      X-Vault-Token: "{{ vault_token }}"
+    body_format: json
+    body:
+      policy: |
+        path "secret/data/gitlab" {
+          capabilities = ["read"]
+        }
+
+- name: Save Vault token for other roles
+  copy:
+    content: "{{ vault_token }}"
+    dest: /tmp/vault_token.txt
+    mode: '0600'

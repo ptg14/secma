@@ -1,0 +1,49 @@
+---
+- name: Test connectivity between services
+  block:
+    - name: Test GitLab to Vault connectivity
+      uri:
+        url: "http://{{ vault_private_ip }}:8200/v1/sys/health"
+        method: GET
+      delegate_to: gitlab
+      run_once: true
+
+    - name: Test GitLab to OPA connectivity
+      uri:
+        url: "http://{{ opa_private_ip }}:8181/health"
+        method: GET
+      delegate_to: gitlab
+      run_once: true
+
+    - name: Test Vault to OPA connectivity
+      uri:
+        url: "http://{{ opa_private_ip }}:8181/health"
+        method: GET
+      delegate_to: vault
+      run_once: true
+
+- name: Create integration test script
+  template:
+    src: integration_test.j2
+    dest: /opt/integration_test.sh
+    mode: '0755'
+
+- name: Run integration tests
+  command: /opt/integration_test.sh
+  register: integration_results
+
+- name: Display integration results
+  debug:
+    msg: "{{ integration_results.stdout }}"
+
+- name: Create monitoring script
+  template:
+    src: monitor_services.j2
+    dest: /opt/monitor_services.sh
+    mode: '0755'
+
+- name: Setup cron job for monitoring
+  cron:
+    name: "Monitor DevOps services"
+    minute: "*/5"
+    job: "/opt/monitor_services.sh"

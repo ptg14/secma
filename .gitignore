@@ -1,0 +1,21 @@
+# Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+terraform.tfvars
+
+# Ansible
+ansible/inventory.ini
+*.retry
+
+# Legacy scripts (replaced by Ansible)
+integration.sh
+generate_inventory.sh
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

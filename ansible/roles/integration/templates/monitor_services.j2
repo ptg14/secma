@@ -1,0 +1,32 @@
+#!/bin/bash
+# Service Monitoring Script
+
+LOG_FILE="/var/log/devops_monitor.log"
+VAULT_IP="{{ vault_private_ip }}"
+OPA_IP="{{ opa_private_ip }}"
+GITLAB_IP="{{ gitlab_private_ip }}"
+
+echo "$(date): Checking service health..." >> $LOG_FILE
+
+# Check Vault
+if ! curl -s --max-time 5 http://$VAULT_IP:8200/v1/sys/health > /dev/null; then
+    echo "$(date): ALERT - Vault is down" >> $LOG_FILE
+fi
+
+# Check OPA
+if ! curl -s --max-time 5 http://$OPA_IP:8181/health > /dev/null; then
+    echo "$(date): ALERT - OPA is down" >> $LOG_FILE
+fi
+
+# Check GitLab
+if ! curl -s --max-time 5 http://$GITLAB_IP > /dev/null; then
+    echo "$(date): ALERT - GitLab is down" >> $LOG_FILE
+fi
+
+# Check integration
+VAULT_TOKEN=$(cat /tmp/vault_token.txt 2>/dev/null)
+if [ -n "$VAULT_TOKEN" ]; then
+    if ! curl -s -H "X-Vault-Token: $VAULT_TOKEN" http://$VAULT_IP:8200/v1/secret/data/gitlab > /dev/null; then
+        echo "$(date): ALERT - Vault-GitLab integration broken" >> $LOG_FILE
+    fi
+fi

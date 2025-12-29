@@ -1,0 +1,134 @@
+---
+- name: Wait for OPA to be ready
+  uri:
+    url: "http://localhost:8181/health"
+    method: GET
+  register: opa_health
+  until: opa_health.status == 200
+  retries: 30
+  delay: 10
+
+- name: Create OPA policies directory
+  file:
+    path: /opt/opa/policies
+    state: directory
+    mode: '0755'
+
+- name: Copy GitLab policy
+  copy:
+    dest: /opt/opa/policies/gitlab.rego
+    content: |
+      package gitlab.authz
+
+      import input as http_api
+
+      default allow = false
+
+      # Allow read access to projects
+      allow {
+          http_api.method == "GET"
+          http_api.path[0] == "api"
+          http_api.path[1] == "v4"
+          http_api.path[2] == "projects"
+      }
+
+      # Allow merge requests from authenticated users
+      allow {
+          http_api.method == "POST"
+          http_api.path[0] == "api"
+          http_api.path[1] == "v4"
+          http_api.path[2] == "projects"
+          http_api.path[3] == http_api.project_id
+          http_api.path[4] == "merge_requests"
+          http_api.user.authenticated == true
+      }
+
+      # Allow admin access
+      allow {
+          http_api.user.role == "admin"
+      }
+
+- name: Copy Vault policy
+  copy:
+    dest: /opt/opa/policies/vault.rego
+    content: |
+      package vault.authz
+
+      import input as vault_request
+
+      default allow = false
+
+      # Allow GitLab CI to read secrets
+      allow {
+          vault_request.operation == "read"
+          vault_request.path[0] == "secret"
+          vault_request.path[1] == "data"
+          vault_request.path[2] == "gitlab"
+          vault_request.user.service == "gitlab-ci"
+      }
+
+      # Allow admin full access
+      allow {
+          vault_request.user.role == "admin"
+      }
+
+      # Time-based access (business hours)
+      allow {
+          vault_request.operation == "read"
+          now := time.now_ns()
+          hour := time.clock(now)["hour"]
+          hour >= 9
+          hour <= 17
+      }
+
+- name: Copy integration policy
+  copy:
+    dest: /opt/opa/policies/integration.rego
+    content: |
+      package integration
+
+      # GitLab can access Vault secrets through OPA validation
+      allow_gitlab_vault {
+          input.service == "gitlab"
+          input.action == "read_secret"
+          input.secret_path == "gitlab"
+          time_based_access
+      }
+
+      # Vault operations validated by OPA
+      allow_vault_operation {
+          input.operation == "read"
+          input.path[0] == "secret"
+          input.user.authenticated == true
+      }
+
+      time_based_access {
+          now := time.now_ns()
+          hour := time.clock(now)["hour"]
+          hour >= 9
+          hour <= 17
+      }
+
+- name: Load GitLab policy
+  uri:
+    url: "http://localhost:8181/v1/policies/gitlab"
+    method: PUT
+    body_format: json
+    body:
+      rego: "{{ lookup('file', '/opt/opa/policies/gitlab.rego') }}"
+
+- name: Load Vault policy
+  uri:
+    url: "http://localhost:8181/v1/policies/vault"
+    method: PUT
+    body_format: json
+    body:
+      rego: "{{ lookup('file', '/opt/opa/policies/vault.rego') }}"
+
+- name: Load integration policy
+  uri:
+    url: "http://localhost:8181/v1/policies/integration"
+    method: PUT
+    body_format: json
+    body:
+      rego: "{{ lookup('file', '/opt/opa/policies/integration.rego') }}"

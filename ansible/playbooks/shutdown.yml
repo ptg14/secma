@@ -1,0 +1,58 @@
+---
+- name: Graceful Shutdown of DevOps Services
+  hosts: devops_stack
+  become: yes
+  gather_facts: no
+  ignore_errors: yes
+
+  tasks:
+    - name: Stop GitLab service
+      systemd:
+        name: gitlab-runsvdir
+        state: stopped
+      when: inventory_hostname == 'gitlab'
+
+    - name: Stop Docker containers
+      shell: docker stop $(docker ps -q) || true
+      when: inventory_hostname == 'gitlab'
+
+    - name: Stop Vault service
+      systemd:
+        name: vault
+        state: stopped
+      when: inventory_hostname == 'vault'
+
+    - name: Stop OPA service
+      systemd:
+        name: opa
+        state: stopped
+      when: inventory_hostname == 'opa'
+
+    - name: Remove temporary files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/vault_token.txt
+        - /tmp/gitlab_token.txt
+        - /opt/integration_test.sh
+        - /opt/monitor_services.sh
+
+    - name: Clean up logs
+      shell: find /var/log -name "*.log" -type f -mtime +7 -delete || true
+
+    - name: Final status check
+      uri:
+        url: "{{ item.url }}"
+        method: GET
+        status_code: 000  # Expect connection refused
+      loop:
+        - { url: 'http://localhost', service: 'GitLab' }
+        - { url: 'http://localhost:8200/v1/sys/health', service: 'Vault' }
+        - { url: 'http://localhost:8181/health', service: 'OPA' }
+      register: shutdown_check
+
+    - name: Report shutdown status
+      debug:
+        msg: "{{ item.item.service }}: Shutdown {{ 'successful' if item.status == -1 else 'may still be running' }}"
+      loop: "{{ shutdown_check.results }}"

@@ -1,0 +1,7 @@
+---
+# Ansible requirements for DevOps Stack
+collections:
+  - name: community.general
+    version: ">=5.0.0"
+  - name: ansible.posix
+    version: ">=1.4.0"
