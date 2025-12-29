@@ -24,7 +24,7 @@
       async: 300
       poll: 10
 
-  when: ansible_hostname == 'gitlab'
+  when: inventory_hostname == 'gitlab'
 
 - name: Wait for GitLab to be ready
   uri:
@@ -34,6 +34,7 @@
   until: gitlab_health.status == 200
   retries: 60
   delay: 10
+  when: inventory_hostname == 'gitlab'
 
 - name: Get GitLab initial root password
   slurp:

@@ -37,7 +37,7 @@
         state: started
         enabled: yes
 
-  when: ansible_hostname == 'opa'
+  when: inventory_hostname == 'opa'
 
 - name: Wait for OPA to be ready
   uri:
@@ -47,6 +47,7 @@
   until: opa_health.status == 200
   retries: 30
   delay: 10
+  when: inventory_hostname == 'opa'
 
 - name: Create OPA policies directory
   file:

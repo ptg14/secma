@@ -54,7 +54,7 @@
         state: started
         enabled: yes
 
-  when: ansible_hostname == 'vault'
+  when: inventory_hostname == 'vault'
 
 - name: Wait for Vault to be ready
   uri:
@@ -64,6 +64,7 @@
   until: vault_health.status == 200
   retries: 30
   delay: 10
+  when: inventory_hostname == 'vault'
 
 - name: Check if Vault is initialized
   set_fact:
