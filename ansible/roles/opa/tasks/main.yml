@@ -1,4 +1,44 @@
 ---
+- name: Install OPA
+  block:
+    - name: Download OPA binary
+      get_url:
+        url: https://openpolicyagent.org/downloads/v0.57.0/opa_linux_amd64_static
+        dest: /usr/local/bin/opa
+        mode: '0755'
+
+    - name: Create OPA data directory
+      file:
+        path: /opt/opa
+        state: directory
+        mode: '0755'
+
+    - name: Create systemd service for OPA
+      copy:
+        content: |
+          [Unit]
+          Description=Open Policy Agent
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=root
+          ExecStart=/usr/local/bin/opa run --server --addr :8181 /opt/opa/policies
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/opa.service
+        mode: '0644'
+
+    - name: Start OPA service
+      systemd:
+        name: opa
+        state: started
+        enabled: yes
+
+  when: ansible_hostname == 'opa'
+
 - name: Wait for OPA to be ready
   uri:
     url: "http://localhost:8181/health"

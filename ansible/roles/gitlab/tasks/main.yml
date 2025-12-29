@@ -1,4 +1,31 @@
 ---
+- name: Install GitLab CE
+  block:
+    - name: Add GitLab repository
+      shell: curl -s https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | sudo bash
+      args:
+        creates: /etc/apt/sources.list.d/gitlab_gitlab-ce.list
+
+    - name: Install GitLab CE
+      apt:
+        name: gitlab-ce
+        state: present
+        update_cache: yes
+
+    - name: Configure GitLab external URL
+      lineinfile:
+        path: /etc/gitlab/gitlab.rb
+        regexp: ^external_url
+        line: external_url 'http://{{ ansible_host }}'
+      notify: reconfigure gitlab
+
+    - name: Reconfigure GitLab
+      command: gitlab-ctl reconfigure
+      async: 300
+      poll: 10
+
+  when: ansible_hostname == 'gitlab'
+
 - name: Wait for GitLab to be ready
   uri:
     url: "http://localhost"
