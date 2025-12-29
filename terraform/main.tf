@@ -186,11 +186,12 @@ data "aws_ami" "ubuntu" {
 
 # GitLab EC2 Instance
 resource "aws_instance" "gitlab" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = var.instance_type
-  key_name      = var.key_name
-  subnet_id     = aws_subnet.public[0].id
-  vpc_security_group_ids = [aws_security_group.web.id]
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = var.instance_type
+  key_name                    = var.key_name
+  subnet_id                   = aws_subnet.public[0].id
+  vpc_security_group_ids      = [aws_security_group.web.id]
+  associate_public_ip_address = true
 
   user_data = <<-EOF
               #!/bin/bash
@@ -214,11 +215,12 @@ resource "aws_instance" "gitlab" {
 
 # Vault EC2 Instance
 resource "aws_instance" "vault" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = var.instance_type
-  key_name      = var.key_name
-  subnet_id     = aws_subnet.public[1].id
-  vpc_security_group_ids = [aws_security_group.web.id]
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = var.instance_type
+  key_name                    = var.key_name
+  subnet_id                   = aws_subnet.public[1].id
+  vpc_security_group_ids      = [aws_security_group.web.id]
+  associate_public_ip_address = true
 
   user_data = <<-EOF
               #!/bin/bash
@@ -262,11 +264,12 @@ resource "aws_instance" "vault" {
 
 # OPA EC2 Instance
 resource "aws_instance" "opa" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = var.instance_type
-  key_name      = var.key_name
-  subnet_id     = aws_subnet.public[0].id
-  vpc_security_group_ids = [aws_security_group.web.id]
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = var.instance_type
+  key_name                    = var.key_name
+  subnet_id                   = aws_subnet.public[0].id
+  vpc_security_group_ids      = [aws_security_group.web.id]
+  associate_public_ip_address = true
 
   user_data = <<-EOF
               #!/bin/bash
