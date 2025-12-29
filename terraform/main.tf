@@ -213,12 +213,7 @@ resource "aws_instance" "gitlab" {
               systemctl start docker
               systemctl enable docker
 
-              # Note: Integration with Vault and OPA requires manual configuration
-              # after deployment using the private IPs from Terraform outputs
-
-              docker run -d --name gitlab -p 80:80 -p 443:443 -p 22:22 \
-                --env GITLAB_OMNIBUS_CONFIG="external_url 'http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)'; gitlab_rails['initial_root_password'] = 'password123';" \
-                gitlab/gitlab-ce:latest
+              # Note: GitLab will be installed by Ansible
               EOF
 
   tags = {
@@ -240,36 +235,7 @@ resource "aws_instance" "vault" {
               #!/bin/bash
               apt-get update
               echo 'ubuntu:devops123' | chpasswd
-              apt-get install -y unzip
-              wget https://releases.hashicorp.com/vault/1.13.0/vault_1.13.0_linux_amd64.zip
-              unzip vault_1.13.0_linux_amd64.zip
-              mv vault /usr/local/bin/
-              useradd --system --home /etc/vault.d --shell /bin/false vault
-              mkdir -p /etc/vault.d
-              cat > /etc/vault.d/vault.hcl <<EOL
-              storage "file" {
-                path = "/opt/vault/data"
-              }
-              listener "tcp" {
-                address = "0.0.0.0:8200"
-                tls_disable = 1
-              }
-              ui = true
-              EOL
-              mkdir -p /opt/vault/data
-              chown -R vault:vault /opt/vault /etc/vault.d
-              cat > /etc/systemd/system/vault.service <<EOL
-              [Unit]
-              Description=Vault
-              [Service]
-              User=vault
-              Group=vault
-              ExecStart=/usr/local/bin/vault server -config=/etc/vault.d/vault.hcl
-              [Install]
-              WantedBy=multi-user.target
-              EOL
-              systemctl enable vault
-              systemctl start vault
+              # Vault will be installed by Ansible
               EOF
 
   tags = {
@@ -291,19 +257,7 @@ resource "aws_instance" "opa" {
               #!/bin/bash
               apt-get update
               echo 'ubuntu:devops123' | chpasswd
-              wget https://openpolicyagent.org/downloads/v0.57.0/opa_linux_amd64
-              mv opa_linux_amd64 /usr/local/bin/opa
-              chmod +x /usr/local/bin/opa
-              cat > /etc/systemd/system/opa.service <<EOL
-              [Unit]
-              Description=Open Policy Agent
-              [Service]
-              ExecStart=/usr/local/bin/opa run --server --addr :8181
-              [Install]
-              WantedBy=multi-user.target
-              EOL
-              systemctl enable opa
-              systemctl start opa
+              # OPA will be installed by Ansible
               EOF
 
   tags = {
